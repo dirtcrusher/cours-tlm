@@ -1,10 +1,12 @@
+// vim: set noexpandtab:tabstop=4:softtabstop=0:shiftwidth=4
+
 // LCD Controller
 // (c) 2005 Jerome Cornet
 //     2007 Matthieu Moy
 
 #include "LCDC.h"
 #include "LCDC_registermap.h"
-#include "ensitlm.h"
+#include "unistd.h"
 
 using namespace std;
 using namespace sc_core;
@@ -15,7 +17,7 @@ const int LCDC::kHeight = 240;
 
 // Constructor
 LCDC::LCDC(sc_module_name name, const sc_time &display_period)
-    : sc_module(name), period(display_period) {
+	: sc_module(name), period(display_period) {
 	static XSizeHints size_hints;
 	Window rootwin;
 	int width, height, depth;
@@ -26,7 +28,6 @@ LCDC::LCDC(sc_module_name name, const sc_time &display_period)
 	// registers initialisation
 	addr_register = 0;
 	int_register = 0;
-	started = false;
 
 	// X11 Initialisation
 	width = kWidth;
@@ -73,7 +74,7 @@ LCDC::LCDC(sc_module_name name, const sc_time &display_period)
 	{
 		// tricks to have it working in non 8-bit depth
 		int imgsize = image->height * image->bytes_per_line;
-		buffer = (char *)malloc(imgsize);
+		buffer = (char *) malloc(imgsize);
 		for (int i = 0; i < imgsize; i++)
 			buffer[i] = 0;
 	}
@@ -137,16 +138,19 @@ void LCDC::init_colormap() {
 tlm::tlm_response_status LCDC::read(const ensitlm::addr_t &a,
                                     ensitlm::data_t &d) {
 	switch (a) {
-	case LCDC_ADDR_REG:
-		d = addr_register;
-		break;
-	case LCDC_INT_REG:
-		d = int_register;
-		break;
-	default:
-		cerr << name() << ": Read access outside register range!"
-		     << endl;
-		return tlm::TLM_ADDRESS_ERROR_RESPONSE;
+		case LCDC_ADDR_REG:
+			d = addr_register;
+			break;
+		case LCDC_START_REG:
+			cerr << name() << ": Read in write only register!" << endl;
+			break;
+		case LCDC_INT_REG:
+			d = int_register;
+			break;
+		default:
+			cerr << name() << ": Read access outside register range!"
+				 << endl;
+			return tlm::TLM_ADDRESS_ERROR_RESPONSE;
 	}
 	return tlm::TLM_OK_RESPONSE;
 }
@@ -155,18 +159,23 @@ tlm::tlm_response_status LCDC::read(const ensitlm::addr_t &a,
 tlm::tlm_response_status LCDC::write(const ensitlm::addr_t &a,
                                      const ensitlm::data_t &d) {
 	switch (a) {
-	case LCDC_ADDR_REG:
-		addr_register = d;
-		break;
-	case LCDC_INT_REG:
-		int_register = d;
-		if (int_register == 0)
-			display_int.write(false);
-		break;
-	default:
-		cerr << name() << ": Write access outside register range!"
-		     << endl;
-		return tlm::TLM_ADDRESS_ERROR_RESPONSE;
+		case LCDC_ADDR_REG:
+			addr_register = d;
+			break;
+		case LCDC_START_REG:
+			started = true;
+			start_event.notify();
+
+			break;
+		case LCDC_INT_REG:
+			int_register = d;
+			if (int_register == 0)
+				display_int.write(false);
+			break;
+		default:
+			cerr << name() << ": Write access outside register range!"
+				 << endl;
+			return tlm::TLM_ADDRESS_ERROR_RESPONSE;
 	}
 	return tlm::TLM_OK_RESPONSE;
 }
@@ -177,10 +186,13 @@ void LCDC::compute() {
 		wait(start_event);
 	}
 
-	cout << name() << ": LCDC starting" << endl;
+	cout << name() << ": starting" << endl;
 
 	while (true) {
 		wait(period);
+		// The following sleep allows for a smooth animation
+		// Could be improved for more constant FPS
+		usleep((int) (period.to_seconds() * 1e6));
 
 		fill_buffer();
 		draw();
@@ -211,7 +223,7 @@ void LCDC::fill_buffer() {
 
 			if (status != tlm::TLM_OK_RESPONSE) {
 				cerr << name() << ": error while reading "
-				                  "memory (address: 0x" << hex
+				     << "memory (address: 0x" << hex
 				     << a << ")" << endl;
 			} else {
 				int sourcevalues[4];

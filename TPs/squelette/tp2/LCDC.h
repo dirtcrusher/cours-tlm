@@ -1,3 +1,5 @@
+// vim: set noexpandtab:tabstop=4:softtabstop=0:shiftwidth=4
+
 // LCD Controller
 // (c) 2005 Jerome Cornet
 //     2007 Matthieu Moy
@@ -45,9 +47,9 @@ struct LCDC : sc_core::sc_module {
 	int color_table[256];
 
 	unsigned long addr_register;
+	bool started = false;
 	unsigned long int_register;
 
-	bool started;
 	sc_core::sc_event start_event;
 
 	sc_core::sc_time period;
