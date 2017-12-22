@@ -34,14 +34,14 @@ test_ok
 start_test SystemC installation
 test -n "$SYSTEMCROOT" || die "Please, set \$SYSTEMCROOT"
 test -e "$SYSTEMCROOT"/include/systemc || die "$SYSTEMCROOT/include/systemc does not exist. Check \$SYSTEMCROOT."
-ARCH=$("$SYSTEMCROOT"/config/config.guess | sed -e 's/x86_64-.*-linux-gnu/linux64/' -e 's/i.86-.*-linux-gnu/linux/' -e 's/x86_64-.*-darwin.*/macosx64/')
-test -e "$SYSTEMCROOT/lib-$ARCH"/libsystemc.la || die "$SYSTEMCROOT/lib-$ARCH/libsystemc.la does not exist. Check your SystemC installation."
+#ARCH=$("$SYSTEMCROOT"/config/config.guess | sed -e 's/x86_64-.*-linux-gnu/linux64/' -e 's/i.86-.*-linux-gnu/linux/' -e 's/x86_64-.*-darwin.*/macosx64/')
+test -e "$SYSTEMCROOT/lib"/libsystemc.la || die "$SYSTEMCROOT/lib/libsystemc.la does not exist. Check your SystemC installation."
 test_ok
 
 start_test SystemC compilation
 g++ "$DIR"/test-systemc.cpp \
     -I "$SYSTEMCROOT"/include/ \
-    -L "$SYSTEMCROOT/lib-$ARCH" \
+    -L "$SYSTEMCROOT/lib" \
     -Xlinker -Bstatic -lsystemc -Xlinker -Bdynamic -pthread \
     -o test-systemc || die "Can't compile a SystemC program"
 ./test-systemc 2>/dev/null > actual || die "Can't execute SystemC program"
